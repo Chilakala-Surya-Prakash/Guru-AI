@@ -167,6 +167,65 @@ const FALLBACK_EXPLANATIONS: Record<string, any> = {
   }
 };
 
+// Helper to sanitize and parse JSON returned from LLMs
+function cleanAndParseJSON(rawText: string): any {
+  if (!rawText) return null;
+  let cleaned = rawText.trim();
+  // Remove markdown code blocks if present
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+  }
+  // Try to find first { and last }
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  return JSON.parse(cleaned);
+}
+
+// Resilient helper to generate content across available flash models
+async function generateJsonWithGemini(
+  ai: GoogleGenAI,
+  prompt: string,
+  systemInstruction?: string
+): Promise<any> {
+  const modelCandidates = [
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-3.7-flash",
+  ];
+
+  let lastError: any = null;
+
+  for (const modelName of modelCandidates) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          ...(systemInstruction ? { systemInstruction } : {}),
+        },
+      });
+
+      const text = response.text;
+      if (text) {
+        const parsed = cleanAndParseJSON(text);
+        if (parsed) {
+          return parsed;
+        }
+      }
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Model ${modelName} encountered an error:`, err?.message || err);
+      // Continue to next candidate model
+    }
+  }
+
+  throw lastError || new Error("All Gemini models failed to produce a response");
+}
+
 // API: Explain any topic for students
 app.post("/api/explain", async (req, res) => {
   try {
@@ -182,18 +241,15 @@ app.post("/api/explain", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Check if we have pre-packaged matching sample or generate intelligent dynamic fallback
       if (FALLBACK_EXPLANATIONS[normalizedKey]) {
         return res.json(FALLBACK_EXPLANATIONS[normalizedKey]);
       }
-
-      // Generate a structured mock response so the app is 100% functional immediately
       const generated = generateFallbackTopic(cleanTopic, level);
       return res.json(generated);
     }
 
-    const prompt = `You are "Guru", a charismatic, highly encouraging AI tutor for students.
-Explain the following topic: "${cleanTopic}" to a ${level} student using clear analogies, step-by-step visual chalkboard examples, and simple real-world comparisons.
+    const prompt = `You are "Guru", a charismatic, encouraging AI tutor for students.
+Explain the topic: "${cleanTopic}" to a ${level} student using clear analogies, step-by-step visual chalkboard examples, and simple real-world comparisons.
 
 Return ONLY a valid JSON object strictly matching this schema:
 {
@@ -203,7 +259,7 @@ Return ONLY a valid JSON object strictly matching this schema:
   "subject": "The academic field (e.g., Physics, Computer Science, Biology, Economics, Math, History)",
   "difficulty": "Simple" | "Medium" | "Advanced",
   "analogy": {
-    "title": "A catchy title for the central analogy (e.g. 'The Highway Traffic Jam', 'The Pizza Delivery Network')",
+    "title": "A catchy title for the central analogy (e.g. 'The Highway Traffic Jam', 'The Solar Sandwich Bakery')",
     "metaphor": "One short sentence framing the metaphor",
     "story": "A vivid 3-4 sentence storytelling analogy that makes the concept click instantly for students.",
     "mapping": [
@@ -235,7 +291,7 @@ Return ONLY a valid JSON object strictly matching this schema:
     }
   ],
   "whiteboardSummary": {
-    "chalkboardTitle": "Key Takeaways & Formula",
+    "chalkboardTitle": "Key Takeaways & Summary",
     "corePrinciples": ["Rule 1", "Rule 2", "Rule 3"],
     "commonPitfalls": ["Common misconception 1 to avoid", "Common misconception 2"],
     "goldenRule": "The one ultimate golden rule to master this topic."
@@ -262,19 +318,14 @@ Return ONLY a valid JSON object strictly matching this schema:
   ]
 }
 
-Make sure there are 3 or 4 well-structured steps, at least 3 quiz questions, and 3-5 analogy mapping items.`;
+Make sure there are 3 well-structured steps, at least 3 quiz questions, and 3-5 analogy mapping items.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        systemInstruction: "You are Guru, an expert pedagogical tutor who turns difficult concepts into intuitive analogies, step-by-step whiteboard sketches, and engaging audio lessons for students of all ages.",
-      },
-    });
+    const parsed = await generateJsonWithGemini(
+      ai,
+      prompt,
+      "You are Guru, an expert pedagogical tutor who turns difficult concepts into intuitive analogies, step-by-step whiteboard sketches, and engaging audio lessons for students of all ages."
+    );
 
-    const text = response.text || "{}";
-    const parsed = JSON.parse(text);
     return res.json(parsed);
   } catch (error: any) {
     console.error("Error generating explanation:", error);
@@ -313,15 +364,7 @@ Keep it under 3 paragraphs. Return JSON with:
   "speechScript": "Conversational, enthusiastic speech text Guru can say aloud in 2-3 sentences"
 }`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const parsed = JSON.parse(response.text || "{}");
+    const parsed = await generateJsonWithGemini(ai, prompt);
     return res.json(parsed);
   } catch (error: any) {
     console.error("Error asking Guru:", error);
@@ -352,13 +395,7 @@ Return JSON:
   "everydayStory": "A 2-sentence playground or home story explaining it perfectly"
 }`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: prompt,
-      config: { responseMimeType: "application/json" }
-    });
-
-    const parsed = JSON.parse(response.text || "{}");
+    const parsed = await generateJsonWithGemini(ai, prompt);
     return res.json(parsed);
   } catch (err: any) {
     return res.json({
