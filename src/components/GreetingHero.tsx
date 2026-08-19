@@ -101,9 +101,12 @@ export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
     );
   }, []);
 
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+
   const toggleVoiceInput = () => {
     if (!recognitionRef.current?.isSupported) {
-      alert("Voice recognition is not supported in this browser. Please type your topic!");
+      setVoiceNotice("Voice input not supported on this browser. Type below!");
+      setTimeout(() => setVoiceNotice(null), 4000);
       return;
     }
     if (isListening) {

@@ -36,6 +36,8 @@ export default function App() {
   const [gradeLevel, setGradeLevel] = useState<GradeLevel>("Middle School");
   const [activeTab, setActiveTab] = useState<"interactive" | "analogy" | "quiz" | "summary">("interactive");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastSearchedTopic, setLastSearchedTopic] = useState<{ topic: string; level: GradeLevel } | null>(null);
   const [history, setHistory] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("guru_history");
@@ -56,6 +58,8 @@ export default function App() {
   const handleSearchTopic = async (topic: string, level: GradeLevel) => {
     try {
       setIsLoading(true);
+      setErrorMessage(null);
+      setLastSearchedTopic({ topic, level });
       speechService.stop();
 
       // Update history
@@ -71,15 +75,18 @@ export default function App() {
       setActiveTab("interactive");
       setActiveView("lesson");
 
-      // Play introductory lesson greeting from Guru
-      const welcomeScript =
-        lessonData.speechScripts?.welcome ||
-        `Welcome! Guru is ready to explore ${lessonData.title} with you. Let's start with the central analogy!`;
-
-      speechService.speak(welcomeScript);
-    } catch (err) {
-      console.error(err);
-      alert("Guru had trouble preparing this lesson. Please try another topic!");
+      // Play introductory lesson greeting from Guru (safe from audio policies)
+      try {
+        const welcomeScript =
+          lessonData.speechScripts?.welcome ||
+          `Welcome! Guru is ready to explore ${lessonData.title} with you. Let's start with the central analogy!`;
+        speechService.speak(welcomeScript);
+      } catch (speechErr) {
+        console.warn("Speech synthesis non-fatal:", speechErr);
+      }
+    } catch (err: any) {
+      console.error("Lesson loading error:", err);
+      setErrorMessage("Guru had trouble preparing this lesson. Please try again or explore another topic!");
     } finally {
       setIsLoading(false);
     }
@@ -137,6 +144,49 @@ export default function App() {
         }}
         history={history}
       />
+
+      {/* Error Toast Notification Banner */}
+      <AnimatePresence>
+        {errorMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] bg-white border-2 border-[#FF7675] shadow-xl rounded-3xl p-4 flex items-center justify-between gap-3 text-sm text-[#2D3436]"
+            id="guru-error-banner"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#FFEAA7] border border-[#FDCB6E] flex items-center justify-center shrink-0 text-lg">
+                🦉
+              </div>
+              <div>
+                <p className="font-bold text-[#2D3436] text-xs md:text-sm">{errorMessage}</p>
+                {lastSearchedTopic && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (lastSearchedTopic) {
+                        handleSearchTopic(lastSearchedTopic.topic, lastSearchedTopic.level);
+                      }
+                    }}
+                    className="text-xs font-black text-[#6C5CE7] hover:underline mt-0.5 cursor-pointer"
+                  >
+                    Try again ↺
+                  </button>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="p-1.5 rounded-full hover:bg-gray-100 text-[#636E72] hover:text-[#2D3436] transition-colors cursor-pointer"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main View Router */}
       <main className="flex-1 w-full relative">

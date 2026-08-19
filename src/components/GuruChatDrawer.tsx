@@ -65,7 +65,6 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
 
   const toggleVoice = () => {
     if (!recognitionRef.current?.isSupported) {
-      alert("Voice recognition is not supported in this browser.");
       return;
     }
     if (isListening) {
