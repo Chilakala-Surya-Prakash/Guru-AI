@@ -184,23 +184,24 @@ function cleanAndParseJSON(rawText: string): any {
   return JSON.parse(cleaned);
 }
 
-// Resilient helper to generate content across available flash models
+// Resilient helper to generate content across available flash models with fast timeout
 async function generateJsonWithGemini(
   ai: GoogleGenAI,
   prompt: string,
-  systemInstruction?: string
+  systemInstruction?: string,
+  timeoutMs: number = 8500
 ): Promise<any> {
   const modelCandidates = [
-    "gemini-3.5-flash-lite",
-    "gemini-flash-latest",
     "gemini-3.7-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
   ];
 
   let lastError: any = null;
 
   for (const modelName of modelCandidates) {
     try {
-      const response = await ai.models.generateContent({
+      const callPromise = ai.models.generateContent({
         model: modelName,
         contents: prompt,
         config: {
@@ -208,6 +209,12 @@ async function generateJsonWithGemini(
           ...(systemInstruction ? { systemInstruction } : {}),
         },
       });
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms on ${modelName}`)), timeoutMs)
+      );
+
+      const response = await Promise.race([callPromise, timeoutPromise]);
 
       const text = response.text;
       if (text) {
@@ -218,8 +225,8 @@ async function generateJsonWithGemini(
       }
     } catch (err: any) {
       lastError = err;
-      console.warn(`Model ${modelName} encountered an error:`, err?.message || err);
-      // Continue to next candidate model
+      console.warn(`Model ${modelName} notice:`, err?.message || err);
+      // Continue to next candidate model immediately
     }
   }
 
