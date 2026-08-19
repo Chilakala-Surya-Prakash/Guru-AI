@@ -1,0 +1,6 @@
+{
+  "name": "Guru - AI Tutor for Students",
+  "description": "An interactive AI tutor for students that explains any concept with simple analogies, speech narration, whiteboard animations, and step-by-step visual examples.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
