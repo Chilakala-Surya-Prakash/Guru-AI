@@ -86,12 +86,18 @@ app.post("/api/explain", async (req, res) => {
 
     const ai = getGeminiClient();
     if (!ai) {
+      const difficulty = level.includes("Elementary")
+        ? "Simple"
+        : level.includes("College")
+        ? "Advanced"
+        : "Medium";
+
       return res.status(200).json({
         topic,
         title: `Understanding ${topic}`,
         tagline: `An intuitive guide to ${topic}`,
         subject: "General Science",
-        difficulty: "Simple",
+        difficulty,
         analogy: {
           title: "The Team Workshop",
           metaphor: "A cooperative workshop where parts work in harmony",

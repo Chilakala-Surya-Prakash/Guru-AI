@@ -414,12 +414,18 @@ Return JSON:
 
 // Helper: Generates a high quality structured lesson if API key isn't provided or during cold-start
 function generateFallbackTopic(topic: string, level: string) {
+  const difficulty = level.includes("Elementary")
+    ? "Simple"
+    : level.includes("College")
+    ? "Advanced"
+    : "Medium";
+
   return {
     topic: topic,
     title: `Understanding ${topic}: The Intuitive Guide`,
     tagline: `Mastering ${topic} through simple everyday mental models`,
     subject: "General Science & Knowledge",
-    difficulty: "Simple",
+    difficulty,
     analogy: {
       title: `The Organized Workshop Analogy`,
       metaphor: `A well-orchestrated workshop where each tool has one specific job`,

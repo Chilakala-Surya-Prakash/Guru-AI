@@ -439,13 +439,18 @@ export function generateClientLessonFallback(topic: string, level: GradeLevel = 
   // Dynamic pedagogical generator tailored to the grade level
   const title = `How ${cleanTopic} Works: The Intuitive Visual Guide`;
   const tagline = `Unlocking ${cleanTopic} through simple mental models and clear visual steps`;
+  const difficulty: "Simple" | "Medium" | "Advanced" = level.includes("Elementary")
+    ? "Simple"
+    : level.includes("College")
+    ? "Advanced"
+    : "Medium";
 
   return {
     topic: cleanTopic,
     title,
     tagline,
     subject: "Science & Knowledge",
-    difficulty: level === "Elementary" ? "Simple" : level === "College" ? "Advanced" : "Medium",
+    difficulty,
     analogy: {
       title: `The Collaborative Workshop Model`,
       metaphor: `An organized workshop where specialized stations work together in sequence`,
