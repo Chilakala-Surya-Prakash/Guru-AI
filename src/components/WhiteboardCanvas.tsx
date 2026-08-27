@@ -37,7 +37,7 @@ export function WhiteboardCanvas({
   useEffect(() => {
     setDrawKey((prev) => prev + 1);
     setSelectedNode(null);
-  }, [stepNumber, drawData]);
+  }, [stepNumber]); // drawData derives from stepNumber; removed to prevent spurious redraws (BUG-08)
 
   // Helper to render relevant icon for whiteboard nodes
   const renderIcon = (type?: string) => {
