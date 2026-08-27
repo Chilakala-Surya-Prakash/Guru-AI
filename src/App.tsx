@@ -114,8 +114,8 @@ export default function App() {
   const handleStepChange = (newIndex: number) => {
     setCurrentStepIndex(newIndex);
     speechService.stop();
-    // Speak the new step automatically
-    if (currentLesson) {
+    // Speak the new step automatically (only if not muted)
+    if (currentLesson && !speechService.muted) {
       const step = currentLesson.steps[newIndex];
       const script =
         currentLesson.speechScripts?.steps?.[newIndex] ||
