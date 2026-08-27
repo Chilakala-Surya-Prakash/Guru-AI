@@ -45,7 +45,7 @@ export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechMuted, setSpeechMuted] = useState(false);
-  const [hasStartedVoice, setHasStartedVoice] = useState(false);
+  const hasStartedVoiceRef = useRef(false);
 
   const recognitionRef = useRef<{ start: () => void; stop: () => void; isSupported: boolean } | null>(null);
 
@@ -59,7 +59,8 @@ export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
 
   // Play Guru's spoken welcome and trigger the popup animation
   const playGreetingSpeech = () => {
-    setHasStartedVoice(true);
+    if (hasStartedVoiceRef.current) return;
+    hasStartedVoiceRef.current = true;
     const greetingText =
       "Hi there! I am Guru. I turn complex ideas into simple stories. What shall we learn today?";
 
@@ -77,9 +78,7 @@ export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
 
     // Auto-trigger speech greeting
     const voiceTimer = setTimeout(() => {
-      if (!hasStartedVoice) {
-        playGreetingSpeech();
-      }
+      playGreetingSpeech();
     }, 350);
 
     return () => {
