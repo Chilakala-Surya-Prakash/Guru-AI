@@ -26,6 +26,7 @@ export function QuizSection({ quiz, topic }: QuizSectionProps) {
   const [score, setScore] = useState<number | null>(null);
 
   const currentQ = quiz[currentIdx];
+  const isCurrentAnswered = selectedAnswers[currentIdx] !== undefined;
   const totalQuestions = quiz.length;
 
   const handleSelectOption = (optIndex: number) => {
@@ -223,6 +224,7 @@ export function QuizSection({ quiz, topic }: QuizSectionProps) {
               <button
                 type="button"
                 onClick={handleNext}
+              disabled={!isCurrentAnswered}
                 className="flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#6C5CE7] hover:bg-[#5849C4] text-white text-xs font-black shadow-md transition-all active:scale-95 cursor-pointer"
                 id="next-quiz-btn"
               >
