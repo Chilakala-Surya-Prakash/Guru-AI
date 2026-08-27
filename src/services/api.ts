@@ -6,8 +6,6 @@ export async function fetchTopicExplanation(
   level: GradeLevel = "Middle School"
 ): Promise<TopicExplanation> {
   const cleanTopic = topic.trim();
-  const normalizedKey = cleanTopic.toLowerCase().replace(/[^a-z0-9]/g, "");
-
   // Fast check: If it matches a curated lesson directly, we can use it or fetch live
   try {
     const res = await fetch("/api/explain", {
