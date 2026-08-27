@@ -7,7 +7,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10);
 
 app.use(express.json());
 
@@ -181,7 +181,11 @@ function cleanAndParseJSON(rawText: string): any {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return null; // Caller falls back to curriculum data
+  }
 }
 
 // Resilient helper to generate content across available flash models with fast timeout
