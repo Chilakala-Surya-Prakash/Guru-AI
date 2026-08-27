@@ -18,7 +18,7 @@ interface StepExplainerProps {
   onStepChange: (index: number) => void;
   isSpeaking: boolean;
   onReadStep: () => void;
-  speechScripts?: string[];
+  // speechScripts removed (BUG-10): was declared but never consumed; narration driven by onReadStep callback
 }
 
 export function StepExplainer({
