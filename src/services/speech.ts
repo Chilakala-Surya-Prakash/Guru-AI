@@ -9,6 +9,8 @@ class SpeechService {
   private voices: SpeechSynthesisVoice[] = [];
   private selectedVoice: SpeechSynthesisVoice | null = null;
   private isMuted: boolean = false;
+
+  public get muted(): boolean { return this.isMuted; }
   private speechRate: number = 1.0;
   private onSpeakingChangeCallbacks: ((isSpeaking: boolean) => void)[] = [];
   private onBoundaryCallbacks: ((charIndex: number, text: string) => void)[] = [];
@@ -89,7 +91,9 @@ class SpeechService {
   }
 
   public onSpeakingChange(cb: (isSpeaking: boolean) => void) {
-    this.onSpeakingChangeCallbacks.push(cb);
+    if (!this.onSpeakingChangeCallbacks.includes(cb)) {
+      this.onSpeakingChangeCallbacks.push(cb);
+    }
     return () => {
       this.onSpeakingChangeCallbacks = this.onSpeakingChangeCallbacks.filter((c) => c !== cb);
     };
