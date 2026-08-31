@@ -26,6 +26,8 @@ import { GradeLevel } from "../types";
 interface GreetingHeroProps {
   onSearchTopic: (topic: string, level: GradeLevel) => void;
   isLoading: boolean;
+  initialGradeLevel?: GradeLevel;
+  onGradeLevelChange?: (level: GradeLevel) => void;
 }
 
 const POPULAR_STUDENT_TOPICS = [
@@ -38,9 +40,24 @@ const POPULAR_STUDENT_TOPICS = [
   { label: "Rocket Propulsion 🚀", topic: "Rocket Propulsion and Newton's Third Law", icon: Compass, level: "Middle School" as GradeLevel, color: "border-[#FF7675] bg-[#FFEDED]" },
 ];
 
-export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
+export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Middle School", onGradeLevelChange }: GreetingHeroProps) {
   const [topicInput, setTopicInput] = useState("");
-  const [gradeLevel, setGradeLevel] = useState<GradeLevel>("Middle School");
+  const [gradeLevel, setGradeLevel] = useState<GradeLevel>(initialGradeLevel);
+
+  // BUG-FIX: cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  // Sync internal state if parent level changes externally
+  useEffect(() => {
+    if (initialGradeLevel && initialGradeLevel !== gradeLevel) {
+      setGradeLevel(initialGradeLevel);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialGradeLevel]);
   const [animationStage, setAnimationStage] = useState<"greeting" | "searchPopped">("greeting");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -286,7 +303,10 @@ export function GreetingHero({ onSearchTopic, isLoading }: GreetingHeroProps) {
                   <button
                     key={lvl}
                     type="button"
-                    onClick={() => setGradeLevel(lvl)}
+                    onClick={() => {
+                      setGradeLevel(lvl);
+                      onGradeLevelChange?.(lvl);
+                    }}
                     className={`px-3.5 py-1.5 rounded-full transition-all font-bold ${
                       gradeLevel === lvl
                         ? "bg-[#6C5CE7] text-white shadow-xs"

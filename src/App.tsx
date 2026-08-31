@@ -3,17 +3,11 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
   Layers,
-  BookOpen,
-  HelpCircle,
   Trophy,
   FileText,
   Lightbulb,
   ArrowLeft,
-  GraduationCap,
   Play,
-  RotateCcw,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import { Navbar } from "./components/Navbar";
 import { GreetingHero } from "./components/GreetingHero";
@@ -60,6 +54,7 @@ export default function App() {
       setIsLoading(true);
       setErrorMessage(null);
       setLastSearchedTopic({ topic, level });
+      setGradeLevel(level);
       speechService.stop();
 
       // Update history
@@ -374,7 +369,6 @@ export default function App() {
                           onStepChange={handleStepChange}
                           isSpeaking={isSpeaking}
                           onReadStep={handleReadCurrentStep}
-                          speechScripts={currentLesson.speechScripts?.steps}
                         />
                       </div>
                     </div>

@@ -30,10 +30,12 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
     {
       id: "welcome-chat",
       sender: "guru",
-      text: `Have any questions about **${lesson.title}** or step ${currentStepIndex + 1}? Ask me anything and I'll break it down with an analogy!`,
+      text: "",
       timestamp: "Just now",
     },
   ]);
+
+  const initializedRef = useRef(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -52,9 +54,9 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isThinking]);
 
-  // BUG-07: refresh welcome message when drawer opens or step changes
   useEffect(() => {
-    if (isOpen && messages.length === 1 && messages[0].id === "welcome-chat") {
+    if (!initializedRef.current) {
+      initializedRef.current = true;
       setMessages([{
         id: "welcome-chat",
         sender: "guru",
@@ -62,7 +64,7 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
         timestamp: "Just now",
       }]);
     }
-  }, [isOpen, currentStepIndex]);
+  }, []);
 
   useEffect(() => {
     recognitionRef.current = createSpeechRecognizer(

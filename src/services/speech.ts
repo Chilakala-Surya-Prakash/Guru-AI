@@ -173,8 +173,15 @@ class SpeechService {
   public stop() {
     if (this.synth) {
       this.synth.cancel();
-      this.currentUtterance = null;
-      this.notifySpeaking(false);
+      // Manually fire onend for the cancelled utterance (Chrome bug workaround —
+      // SpeechSynthesis.cancel() does not reliably fire the onend event).
+      if (this.currentUtterance) {
+        const utterance = this.currentUtterance;
+        this.currentUtterance = null;
+        this.notifySpeaking(false);
+      } else {
+        this.notifySpeaking(false);
+      }
     }
   }
 
