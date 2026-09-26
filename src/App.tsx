@@ -8,6 +8,7 @@ import {
   Lightbulb,
   ArrowLeft,
   Play,
+  VolumeX,
 } from "lucide-react";
 import { Navbar } from "./components/Navbar";
 import { GreetingHero } from "./components/GreetingHero";
@@ -89,7 +90,8 @@ export default function App() {
 
   const handleReadCurrentStep = () => {
     if (!currentLesson) return;
-    const step = currentLesson.steps[currentStepIndex];
+    const step = currentLesson.steps?.[currentStepIndex];
+    if (!step) return;
     const script =
       currentLesson.speechScripts?.steps?.[currentStepIndex] ||
       `Step ${currentStepIndex + 1}: ${step.title}. ${step.content}. Real world example: ${step.example}. Key takeaway: ${step.keyTakeaway}`;
@@ -101,7 +103,7 @@ export default function App() {
     if (!currentLesson) return;
     const script =
       currentLesson.speechScripts?.wrapup ||
-      `Here are the core summary takeaways for ${currentLesson.topic}: ${currentLesson.whiteboardSummary.goldenRule}`;
+      `Here are the core summary takeaways for ${currentLesson.topic}: ${currentLesson.whiteboardSummary?.goldenRule || "Focus on the core concept"}`;
 
     speechService.speak(script);
   };
@@ -110,7 +112,7 @@ export default function App() {
     setCurrentStepIndex(newIndex);
     speechService.stop();
     // Speak the new step automatically (only if not muted)
-    if (currentLesson && !speechService.muted) {
+    if (currentLesson && !speechService.muted && currentLesson.steps?.[newIndex]) {
       const step = currentLesson.steps[newIndex];
       const script =
         currentLesson.speechScripts?.steps?.[newIndex] ||
@@ -221,7 +223,12 @@ export default function App() {
 
         {activeView === "greeting" ? (
           /* Greeting Page with Guru Voice & Search */
-          <GreetingHero onSearchTopic={handleSearchTopic} isLoading={isLoading} />
+          <GreetingHero
+            onSearchTopic={handleSearchTopic}
+            isLoading={isLoading}
+            initialGradeLevel={gradeLevel}
+            onGradeLevelChange={setGradeLevel}
+          />
         ) : (
           /* Active Lesson Studio View */
           currentLesson && (

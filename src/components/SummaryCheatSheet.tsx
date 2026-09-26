@@ -25,9 +25,9 @@ export function SummaryCheatSheet({
 
   const handleCopyNotes = () => {
     const text = `=== ${topic} Summary Notes (by Guru AI) ===\n\n` +
-      `Core Principles:\n${summary.corePrinciples.map((p) => `- ${p}`).join("\n")}\n\n` +
-      `Common Pitfalls to Avoid:\n${summary.commonPitfalls.map((p) => `- ${p}`).join("\n")}\n\n` +
-      `Golden Rule:\n${summary.goldenRule}\n`;
+      `Core Principles:\n${(summary?.corePrinciples || []).map((p) => `- ${p}`).join("\n")}\n\n` +
+      `Common Pitfalls to Avoid:\n${(summary?.commonPitfalls || []).map((p) => `- ${p}`).join("\n")}\n\n` +
+      `Golden Rule:\n${summary?.goldenRule || "Focus on the core concepts."}\n`;
 
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -86,9 +86,9 @@ export function SummaryCheatSheet({
             Core Principles:
           </p>
           <ul className="space-y-3">
-            {summary.corePrinciples.map((rule, idx) => (
+            {(summary?.corePrinciples || []).map((rule, idx) => (
               <li key={idx} className="flex items-start gap-2.5 text-xs md:text-sm text-[#2D3436] font-semibold leading-snug">
-                <span className="w-2 h-2 rounded-full bg-[#22A6B3] mt-1.5 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#22A6B3] mt-1 shrink-0" />
                 <span>{rule}</span>
               </li>
             ))}
@@ -102,9 +102,9 @@ export function SummaryCheatSheet({
             Common Pitfalls & Misconceptions:
           </p>
           <ul className="space-y-3">
-            {summary.commonPitfalls.map((pitfall, idx) => (
+            {(summary?.commonPitfalls || []).map((pitfall, idx) => (
               <li key={idx} className="flex items-start gap-2.5 text-xs md:text-sm text-[#2D3436] font-semibold leading-snug">
-                <span className="w-2 h-2 rounded-full bg-[#EB4D4B] mt-1.5 shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[#EB4D4B] mt-1 shrink-0" />
                 <span>{pitfall}</span>
               </li>
             ))}

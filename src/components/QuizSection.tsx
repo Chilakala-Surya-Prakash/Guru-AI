@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import confetti from "canvas-confetti";
 import {
@@ -25,12 +25,42 @@ export function QuizSection({ quiz, topic }: QuizSectionProps) {
   const [showHint, setShowHint] = useState<{ [key: number]: boolean }>({});
   const [score, setScore] = useState<number | null>(null);
 
-  const currentQ = quiz[currentIdx];
+  const handleResetQuiz = () => {
+    setCurrentIdx(0);
+    setSelectedAnswers({});
+    setShowExplanation({});
+    setShowHint({});
+    setScore(null);
+  };
+
+  // Reset quiz progress whenever topic changes
+  useEffect(() => {
+    handleResetQuiz();
+  }, [topic]);
+
+  if (!quiz || quiz.length === 0) {
+    return (
+      <div
+        className="rounded-[2.5rem] bg-white border-4 border-[#FFEAA7] p-8 text-center shadow-xl text-[#2D3436] relative overflow-hidden"
+        id="quiz-empty-card"
+      >
+        <div className="w-16 h-16 mx-auto mb-4 bg-[#FFF9E3] text-[#F1C40F] border-2 border-[#FFEAA7] rounded-3xl flex items-center justify-center shadow-xs">
+          <Trophy size={32} />
+        </div>
+        <h3 className="text-xl font-black">No Quiz Available Yet</h3>
+        <p className="text-sm text-[#636E72] mt-2 max-w-md mx-auto">
+          Guru hasn&apos;t prepared mini-quiz questions for &ldquo;{topic}&rdquo; yet. Explore the interactive steps or ask Guru a question!
+        </p>
+      </div>
+    );
+  }
+
+  const currentQ = quiz[currentIdx] || quiz[0];
   const isCurrentAnswered = selectedAnswers[currentIdx] !== undefined;
   const totalQuestions = quiz.length;
 
   const handleSelectOption = (optIndex: number) => {
-    if (selectedAnswers[currentIdx] !== undefined) return; // already answered
+    if (selectedAnswers[currentIdx] !== undefined || !currentQ) return; // already answered
 
     const updated = { ...selectedAnswers, [currentIdx]: optIndex };
     setSelectedAnswers(updated);
@@ -68,14 +98,6 @@ export function QuizSection({ quiz, topic }: QuizSectionProps) {
         });
       }
     }
-  };
-
-  const handleResetQuiz = () => {
-    setCurrentIdx(0);
-    setSelectedAnswers({});
-    setShowExplanation({});
-    setShowHint({});
-    setScore(null);
   };
 
   return (

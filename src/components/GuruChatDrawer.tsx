@@ -26,16 +26,15 @@ interface GuruChatDrawerProps {
 export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputVal, setInputVal] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: "welcome-chat",
       sender: "guru",
-      text: "",
+      text: `Have any questions about **${lesson.title}** or step ${currentStepIndex + 1}? Ask me anything and I'll break it down with an analogy!`,
       timestamp: "Just now",
     },
   ]);
 
-  const initializedRef = useRef(false);
   const [isThinking, setIsThinking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -54,17 +53,17 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isThinking]);
 
+  // Reset chat messages when lesson topic changes
   useEffect(() => {
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      setMessages([{
+    setMessages([
+      {
         id: "welcome-chat",
         sender: "guru",
         text: `Have any questions about **${lesson.title}** or step ${currentStepIndex + 1}? Ask me anything and I'll break it down with an analogy!`,
         timestamp: "Just now",
-      }]);
-    }
-  }, []);
+      },
+    ]);
+  }, [lesson.topic]);
 
   useEffect(() => {
     recognitionRef.current = createSpeechRecognizer(
@@ -75,6 +74,10 @@ export function GuruChatDrawer({ lesson, currentStepIndex }: GuruChatDrawerProps
         setIsListening(false);
       }
     );
+
+    return () => {
+      recognitionRef.current?.stop();
+    };
   }, []);
 
   const toggleVoice = () => {

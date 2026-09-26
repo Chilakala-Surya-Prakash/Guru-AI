@@ -28,7 +28,15 @@ export function StepExplainer({
   isSpeaking,
   onReadStep,
 }: StepExplainerProps) {
-  const currentStep = steps[currentStepIndex];
+  const currentStep = steps?.[currentStepIndex];
+
+  if (!steps || steps.length === 0 || !currentStep) {
+    return (
+      <div className="rounded-[2.5rem] bg-white border-4 border-[#FFEAA7] p-8 text-center shadow-xl text-[#2D3436]">
+        <p className="text-sm font-bold text-[#636E72]">No step details available.</p>
+      </div>
+    );
+  }
 
   return (
     <div

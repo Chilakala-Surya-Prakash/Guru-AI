@@ -173,9 +173,9 @@ export function WhiteboardCanvas({
       {/* Main Drawing Stage: Animated Elements */}
       <div key={drawKey} className="relative z-10 my-auto py-6 flex flex-col items-center justify-center">
         {/* Layout according to draw type */}
-        {drawData.type === "flow" || drawData.type === "diagram" || drawData.type === "cycle" ? (
+        {drawData?.type === "flow" || drawData?.type === "diagram" || drawData?.type === "cycle" ? (
           <div className="w-full flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 flex-wrap">
-            {drawData.nodes.map((node, index) => (
+            {(drawData?.nodes || []).map((node, index) => (
               <div key={node.id} className="flex items-center gap-3 md:gap-4 flex-col md:flex-row">
                 {/* Node Box */}
                 <motion.div
@@ -214,7 +214,7 @@ export function WhiteboardCanvas({
                 </motion.div>
 
                 {/* Arrow Connector between nodes */}
-                {index < drawData.nodes.length - 1 && (
+                {index < (drawData?.nodes || []).length - 1 && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -231,7 +231,7 @@ export function WhiteboardCanvas({
                         <ArrowRight size={18} className="text-[#6C5CE7] rotate-90 -mt-1" />
                       </div>
                     </div>
-                    {drawData.connections?.[index]?.label && (
+                    {drawData?.connections?.[index]?.label && (
                       <span className="text-[10px] font-bold text-[#6C5CE7] bg-white px-2 py-0.5 rounded-full border border-[#FFEAA7] mt-1 shadow-xs">
                         {drawData.connections[index].label}
                       </span>
@@ -244,7 +244,7 @@ export function WhiteboardCanvas({
         ) : (
           /* Comparison or Layers Layout */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-            {drawData.nodes.map((node, index) => (
+            {(drawData?.nodes || []).map((node, index) => (
               <motion.div
                 key={node.id}
                 initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}

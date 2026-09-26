@@ -143,24 +143,32 @@ class SpeechService {
       utterance.pitch = 1.05; // Friendly energetic pitch for AI tutor
 
       utterance.onstart = () => {
-        this.notifySpeaking(true);
+        if (this.currentUtterance === utterance) {
+          this.notifySpeaking(true);
+        }
         options?.onStart?.();
       };
 
       utterance.onboundary = (e) => {
-        this.onBoundaryCallbacks.forEach((cb) => cb(e.charIndex, cleaned));
+        if (this.currentUtterance === utterance) {
+          this.onBoundaryCallbacks.forEach((cb) => cb(e.charIndex, cleaned));
+        }
       };
 
       utterance.onend = () => {
-        this.notifySpeaking(false);
-        this.currentUtterance = null;
+        if (this.currentUtterance === utterance) {
+          this.notifySpeaking(false);
+          this.currentUtterance = null;
+        }
         options?.onEnd?.();
         resolve();
       };
 
       utterance.onerror = () => {
-        this.notifySpeaking(false);
-        this.currentUtterance = null;
+        if (this.currentUtterance === utterance) {
+          this.notifySpeaking(false);
+          this.currentUtterance = null;
+        }
         options?.onError?.();
         resolve();
       };

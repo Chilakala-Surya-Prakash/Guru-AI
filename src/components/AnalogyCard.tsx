@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Lightbulb,
@@ -27,10 +27,18 @@ export function AnalogyCard({
   const [simplifiedText, setSimplifiedText] = useState<string | null>(null);
   const [isSimplifying, setIsSimplifying] = useState(false);
 
+  // Reset ultra-simplified story if student switches lesson topics
+  useEffect(() => {
+    setSimplifiedText(null);
+  }, [lesson.topic]);
+
   const handleHearAnalogy = () => {
+    const mappings = (lesson.analogy?.mapping || [])
+      .map((m) => `${m.analogyItem} represents ${m.concept}`)
+      .join(", and ");
     const textToSpeak =
       simplifiedText ||
-      `Here is the analogy for ${lesson.title}: ${lesson.analogy.title}. Think of it like this: ${lesson.analogy.story}. In this story, ${lesson.analogy.mapping.map((m) => `${m.analogyItem} represents ${m.concept}`).join(", and ")}.`;
+      `Here is the analogy for ${lesson.title}: ${lesson.analogy?.title || "Analogy"}. Think of it like this: ${lesson.analogy?.story || ""}. ${mappings ? `In this story, ${mappings}.` : ""}`;
 
     onStartSpeech(textToSpeak);
   };
@@ -138,7 +146,7 @@ export function AnalogyCard({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {lesson.analogy.mapping.map((mapping, idx) => (
+          {(lesson.analogy?.mapping || []).map((mapping, idx) => (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 10 }}

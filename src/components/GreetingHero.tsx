@@ -75,8 +75,8 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
   }, []);
 
   // Play Guru's spoken welcome and trigger the popup animation
-  const playGreetingSpeech = () => {
-    if (hasStartedVoiceRef.current) return;
+  const playGreetingSpeech = (force: boolean = false) => {
+    if (!force && hasStartedVoiceRef.current) return;
     hasStartedVoiceRef.current = true;
     const greetingText =
       "Hi there! I am Guru. I turn complex ideas into simple stories. What shall we learn today?";
@@ -146,6 +146,7 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
     if (isLoading) return;
     setTopicInput(topic);
     setGradeLevel(level);
+    onGradeLevelChange?.(level);
     speechService.stop();
     onSearchTopic(topic, level);
   };
@@ -157,7 +158,7 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
     if (next) {
       speechService.stop();
     } else {
-      playGreetingSpeech();
+      playGreetingSpeech(true);
     }
   };
 
@@ -178,7 +179,7 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="cursor-pointer group relative"
-            onClick={playGreetingSpeech}
+            onClick={() => playGreetingSpeech(true)}
             title="Click to hear Guru speak again"
             id="hero-guru-avatar-btn"
           >
@@ -214,7 +215,7 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={playGreetingSpeech}
+                  onClick={() => playGreetingSpeech(true)}
                   className="p-1 rounded-lg text-[#636E72] hover:text-[#6C5CE7] hover:bg-[#FFF9E3] transition-colors"
                   title="Replay Voice"
                 >

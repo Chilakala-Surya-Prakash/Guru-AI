@@ -71,9 +71,12 @@ async function generateJsonWithGemini(
   timeoutMs: number = 8500
 ): Promise<any> {
   const modelCandidates = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-2.5-flash-lite",
     "gemini-3.7-flash",
     "gemini-flash-latest",
-    "gemini-3.1-flash-lite",
   ];
 
   let lastError: any = null;
@@ -177,7 +180,11 @@ Return valid JSON with: topic, title, tagline, subject, difficulty, analogy, ste
 
 app.post("/api/ask-guru", async (req, res) => {
   try {
-    const { question, topic } = req.body;
+    const { question, topic = "this concept" } = req.body;
+    if (!question) {
+      return res.status(400).json({ error: "Question is required" });
+    }
+
     const ai = getGeminiClient();
     if (!ai) {
       return res.json({

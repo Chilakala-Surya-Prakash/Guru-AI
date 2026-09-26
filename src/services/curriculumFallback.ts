@@ -426,9 +426,12 @@ export function generateClientLessonFallback(topic: string, level: GradeLevel = 
   const cleanTopic = topic.trim();
   const normalizedKey = cleanTopic.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  // Check if we have an exact curated match
+  // Check if we have an exact or strong curated match
   for (const [key, lesson] of Object.entries(CURATED_LESSONS)) {
-    if (normalizedKey.includes(key) || key.includes(normalizedKey)) {
+    if (
+      normalizedKey === key ||
+      (normalizedKey.length >= 4 && (normalizedKey.includes(key) || key.includes(normalizedKey)))
+    ) {
       return {
         ...lesson,
         topic: cleanTopic,
