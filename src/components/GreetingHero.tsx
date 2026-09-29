@@ -282,14 +282,14 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
                     </button>
                   )}
 
-                  {/* Big Purple Vibrant Button */}
+                  {/* Big Video Generate Button */}
                   <button
                     type="submit"
                     disabled={!topicInput.trim() || isLoading}
-                    className="bg-[#6C5CE7] text-white px-8 md:px-10 py-3.5 md:py-4 rounded-[2rem] font-black text-base md:text-lg hover:bg-[#5849C4] transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="bg-[#FF0000] text-white px-7 md:px-9 py-3.5 md:py-4 rounded-[2rem] font-black text-sm md:text-base hover:bg-[#D90000] transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
                     id="teach-me-btn"
                   >
-                    {isLoading ? "Cooking..." : "GO!"}
+                    <span>{isLoading ? "Generating Video..." : "Watch Video ▶"}</span>
                   </button>
                 </div>
               </form>
@@ -297,21 +297,21 @@ export function GreetingHero({ onSearchTopic, isLoading, initialGradeLevel = "Mi
               {/* Grade Level Selector */}
               <div className="mt-4 flex items-center justify-center gap-2 flex-wrap text-xs font-semibold text-[#636E72]" id="grade-level-selector">
                 <span className="flex items-center gap-1 text-[#2D3436] font-bold mr-1">
-                  <GraduationCap size={15} className="text-[#6C5CE7]" />
-                  Learning Depth:
+                  <GraduationCap size={15} className="text-[#FF0000]" />
+                  Audience Level:
                 </span>
-                {(["Elementary (Like I'm 10)", "Middle School", "High School", "College / Advanced"] as GradeLevel[]).map((lvl) => (
+                {(["School", "Middle School", "Advanced"] as const).map((lvl) => (
                   <button
                     key={lvl}
                     type="button"
                     onClick={() => {
-                      setGradeLevel(lvl);
-                      onGradeLevelChange?.(lvl);
+                      setGradeLevel(lvl as GradeLevel);
+                      onGradeLevelChange?.(lvl as GradeLevel);
                     }}
-                    className={`px-3.5 py-1.5 rounded-full transition-all font-bold ${
-                      gradeLevel === lvl
-                        ? "bg-[#6C5CE7] text-white shadow-xs"
-                        : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#6C5CE7]"
+                    className={`px-4 py-1.5 rounded-full transition-all font-bold cursor-pointer ${
+                      gradeLevel.startsWith(lvl) || gradeLevel === lvl
+                        ? "bg-[#FF0000] text-white shadow-xs"
+                        : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#FF0000]"
                     }`}
                     id={`grade-${lvl.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
                   >

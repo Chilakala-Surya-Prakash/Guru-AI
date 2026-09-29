@@ -108,18 +108,18 @@ export function Navbar({
 
           {/* Grade Level Selector */}
           <div className="hidden md:flex items-center bg-white border-2 border-[#FFEAA7] rounded-full p-1 text-[11px] font-semibold shadow-xs">
-            {(["Elementary (Like I'm 10)", "Middle School", "High School", "College / Advanced"] as GradeLevel[]).map((lvl) => (
+            {(["School", "Middle School", "Advanced"] as const).map((lvl) => (
               <button
                 key={lvl}
                 type="button"
-                onClick={() => onGradeLevelChange(lvl)}
-                className={`px-2.5 py-1 rounded-full transition-all ${
-                  gradeLevel === lvl
-                    ? "bg-[#6C5CE7] text-white font-bold shadow-xs"
+                onClick={() => onGradeLevelChange(lvl as GradeLevel)}
+                className={`px-3 py-1 rounded-full transition-all font-bold ${
+                  gradeLevel.startsWith(lvl) || gradeLevel === lvl
+                    ? "bg-[#FF0000] text-white shadow-xs"
                     : "text-[#636E72] hover:text-[#2D3436]"
                 }`}
               >
-                {lvl.split(" ")[0]}
+                {lvl}
               </button>
             ))}
           </div>

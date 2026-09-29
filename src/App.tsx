@@ -2,35 +2,42 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Sparkles,
-  Layers,
   Trophy,
   FileText,
   Lightbulb,
   ArrowLeft,
   Play,
-  VolumeX,
+  Pause,
+  Clock,
+  Share2,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
 } from "lucide-react";
 import { Navbar } from "./components/Navbar";
 import { GreetingHero } from "./components/GreetingHero";
-import { WhiteboardCanvas } from "./components/WhiteboardCanvas";
-import { AnalogyCard } from "./components/AnalogyCard";
-import { StepExplainer } from "./components/StepExplainer";
+import { YouTubeVideoPlayer } from "./components/YouTubeVideoPlayer";
+import { VideoTranscript } from "./components/VideoTranscript";
 import { QuizSection } from "./components/QuizSection";
-import { SummaryCheatSheet } from "./components/SummaryCheatSheet";
 import { GuruChatDrawer } from "./components/GuruChatDrawer";
 import { GuruAvatar } from "./components/GuruAvatar";
 import { speechService } from "./services/speech";
 import { fetchTopicExplanation } from "./services/api";
+import { formatTime, ensureVideoContent } from "./services/videoHelper";
 import { TopicExplanation, GradeLevel } from "./types";
 
 export default function App() {
   const [activeView, setActiveView] = useState<"greeting" | "lesson">("greeting");
   const [currentLesson, setCurrentLesson] = useState<TopicExplanation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [gradeLevel, setGradeLevel] = useState<GradeLevel>("Middle School");
-  const [activeTab, setActiveTab] = useState<"interactive" | "analogy" | "quiz" | "summary">("interactive");
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<"transcript" | "quiz" | "chat">("transcript");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastSearchedTopic, setLastSearchedTopic] = useState<{ topic: string; level: GradeLevel } | null>(null);
   const [history, setHistory] = useState<string[]>(() => {
@@ -57,8 +64,10 @@ export default function App() {
       setLastSearchedTopic({ topic, level });
       setGradeLevel(level);
       speechService.stop();
+      setIsPlaying(false);
+      setCurrentTime(0);
 
-      // Update history
+      // Update search history
       const updated = [topic, ...history.filter((h) => h.toLowerCase() !== topic.toLowerCase())].slice(0, 8);
       setHistory(updated);
       try {
@@ -66,59 +75,24 @@ export default function App() {
       } catch {}
 
       const lessonData = await fetchTopicExplanation(topic, level);
-      setCurrentLesson(lessonData);
-      setCurrentStepIndex(0);
-      setActiveTab("interactive");
-      setActiveView("lesson");
-
-      // Play introductory lesson greeting from Guru (safe from audio policies)
-      try {
-        const welcomeScript =
-          lessonData.speechScripts?.welcome ||
-          `Welcome! Guru is ready to explore ${lessonData.title} with you. Let's start with the central analogy!`;
-        speechService.speak(welcomeScript);
-      } catch (speechErr) {
-        console.warn("Speech synthesis non-fatal:", speechErr);
+      if (!lessonData.video) {
+        lessonData.video = ensureVideoContent(lessonData);
       }
+      setCurrentLesson(lessonData);
+      setActiveView("lesson");
+      setSidebarTab("transcript");
+      setCurrentTime(0);
+      setIsPlaying(true);
     } catch (err: any) {
       console.error("Lesson loading error:", err);
-      setErrorMessage("Guru had trouble preparing this lesson. Please try again or explore another topic!");
+      setErrorMessage("Guru had trouble preparing this video lesson. Please try again or explore another topic!");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleReadCurrentStep = () => {
-    if (!currentLesson) return;
-    const step = currentLesson.steps?.[currentStepIndex];
-    if (!step) return;
-    const script =
-      currentLesson.speechScripts?.steps?.[currentStepIndex] ||
-      `Step ${currentStepIndex + 1}: ${step.title}. ${step.content}. Real world example: ${step.example}. Key takeaway: ${step.keyTakeaway}`;
-
-    speechService.speak(script);
-  };
-
-  const handleReadSummary = () => {
-    if (!currentLesson) return;
-    const script =
-      currentLesson.speechScripts?.wrapup ||
-      `Here are the core summary takeaways for ${currentLesson.topic}: ${currentLesson.whiteboardSummary?.goldenRule || "Focus on the core concept"}`;
-
-    speechService.speak(script);
-  };
-
-  const handleStepChange = (newIndex: number) => {
-    setCurrentStepIndex(newIndex);
-    speechService.stop();
-    // Speak the new step automatically (only if not muted)
-    if (currentLesson && !speechService.muted && currentLesson.steps?.[newIndex]) {
-      const step = currentLesson.steps[newIndex];
-      const script =
-        currentLesson.speechScripts?.steps?.[newIndex] ||
-        `Step ${newIndex + 1}: ${step.title}. ${step.content}`;
-      speechService.speak(script);
-    }
+  const handleSeek = (time: number) => {
+    setCurrentTime(time);
   };
 
   return (
@@ -129,6 +103,7 @@ export default function App() {
         onSearchNewTopic={handleSearchTopic}
         onHomeClick={() => {
           speechService.stop();
+          setIsPlaying(false);
           setActiveView("greeting");
         }}
         isSpeaking={isSpeaking}
@@ -185,7 +160,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main View Router */}
+      {/* Main Content Router */}
       <main className="flex-1 w-full relative">
         {/* Loading Overlay when generating lesson */}
         <AnimatePresence>
@@ -207,15 +182,15 @@ export default function App() {
               </div>
 
               <h2 className="text-2xl md:text-3xl font-black text-[#2D3436] mb-2">
-                Guru is Preparing Your Lesson...
+                Generating Video & Transcript...
               </h2>
               <p className="text-sm md:text-base text-[#636E72] font-medium max-w-md mb-6">
-                Crafting visual analogies, drawing chalkboard diagrams, and structuring step-by-step examples.
+                Directing animated scenes, syncing timecodes, and calibrating narration for {gradeLevel} level.
               </p>
 
               <div className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-2 border-[#FFEAA7] text-[#6C5CE7] text-xs font-black shadow-xs">
                 <Sparkles size={16} className="animate-spin text-[#F1C40F]" />
-                <span>Zero-Cost Vibrant Learning Experience</span>
+                <span>AI Video Pedagogical Engine</span>
               </div>
             </motion.div>
           )}
@@ -230,208 +205,316 @@ export default function App() {
             onGradeLevelChange={setGradeLevel}
           />
         ) : (
-          /* Active Lesson Studio View */
+          /* YouTube Watch Page View */
           currentLesson && (
-            <div className="max-w-7xl mx-auto px-4 py-8 space-y-8" id="lesson-studio-container">
-              {/* Back to Topics Button & Hero Header */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b-2 border-[#FFEAA7]">
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      speechService.stop();
-                      setActiveView("greeting");
-                    }}
-                    className="inline-flex items-center gap-1.5 text-xs text-[#636E72] hover:text-[#6C5CE7] transition-colors mb-3 font-bold cursor-pointer"
-                    id="back-to-greeting-btn"
-                  >
-                    <ArrowLeft size={15} />
-                    <span>← Back to Topic Search</span>
-                  </button>
+            <div className="max-w-7xl mx-auto px-4 py-6" id="youtube-watch-page">
+              {/* Back to Topics Navigation Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-[#FFEAA7]/80 mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    speechService.stop();
+                    setIsPlaying(false);
+                    setActiveView("greeting");
+                  }}
+                  className="inline-flex items-center gap-2 text-xs md:text-sm font-bold text-[#636E72] hover:text-[#6C5CE7] transition-colors cursor-pointer"
+                  id="back-to-greeting-btn"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Back to Search</span>
+                </button>
 
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="text-xs uppercase font-black tracking-wider px-3 py-1 rounded-full bg-[#DFF9FB] text-[#22A6B3] border border-[#C7ECEE] shadow-xs">
-                      {currentLesson.subject || "Science"}
-                    </span>
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#FFF9E3] text-[#2D3436] border border-[#FFEAA7] shadow-xs">
-                      {gradeLevel}
-                    </span>
-                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-white text-[#636E72] border border-[#FFEAA7] shadow-xs">
-                      {currentLesson.difficulty || "Intuitive"}
-                    </span>
-                  </div>
-
-                  <h1 className="text-3xl md:text-5xl font-black text-[#2D3436] tracking-tight">
-                    {currentLesson.title}
-                  </h1>
-                  <p className="text-base md:text-lg text-[#636E72] font-medium mt-1">
-                    {currentLesson.tagline}
-                  </p>
-                </div>
-
-                {/* Lesson Voice Control Bar */}
-                <div className="flex items-center gap-3 bg-white border-2 border-[#FFEAA7] p-3.5 rounded-3xl shrink-0 shadow-sm">
-                  <GuruAvatar isSpeaking={isSpeaking} size="sm" />
-                  <div>
-                    <span className="text-xs font-black text-[#2D3436] block">Guru Narration</span>
-                    <span className="text-[11px] font-semibold text-[#636E72]">
-                      {isSpeaking ? "Speaking now..." : "Click to listen"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isSpeaking) {
-                        speechService.stop();
-                      } else {
-                        handleReadCurrentStep();
-                      }
-                    }}
-                    className="p-3 rounded-2xl bg-[#6C5CE7] hover:bg-[#5849C4] text-white font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                    title={isSpeaking ? "Pause Voice" : "Play Step Voice"}
-                    id="guru-voice-play-pause-btn"
-                  >
-                    {isSpeaking ? <VolumeX size={18} /> : <Play size={18} />}
-                  </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase font-black tracking-wider px-3 py-1 rounded-full bg-[#DFF9FB] text-[#22A6B3] border border-[#C7ECEE]">
+                    {currentLesson.subject || "Science"}
+                  </span>
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#FFF9E3] text-[#2D3436] border border-[#FFEAA7]">
+                    {gradeLevel} Level
+                  </span>
                 </div>
               </div>
 
-              {/* Lesson Section Navigation Tabs */}
-              <div className="flex items-center gap-3 overflow-x-auto pb-2 border-b-2 border-[#FFEAA7] text-sm font-bold" id="lesson-tabs">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("interactive")}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === "interactive"
-                      ? "bg-[#6C5CE7] text-white shadow-md font-black"
-                      : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#6C5CE7]"
-                  }`}
-                  id="tab-interactive-btn"
-                >
-                  <Layers size={16} />
-                  <span>Interactive Whiteboard & Steps</span>
-                </button>
+              {/* Main 2-Column YouTube Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Left Column: Player, Video Info, Description */}
+                <div className="lg:col-span-8 flex flex-col space-y-4">
+                  {/* YouTube Video Player Component */}
+                  <YouTubeVideoPlayer
+                    video={currentLesson.video}
+                    topic={currentLesson.topic}
+                    title={currentLesson.title}
+                    level={gradeLevel}
+                    currentTime={currentTime}
+                    isPlaying={isPlaying}
+                    onTimeUpdate={setCurrentTime}
+                    onPlayStateChange={setIsPlaying}
+                    onSeek={handleSeek}
+                  />
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("analogy")}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === "analogy"
-                      ? "bg-[#6C5CE7] text-white shadow-md font-black"
-                      : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#6C5CE7]"
-                  }`}
-                  id="tab-analogy-btn"
-                >
-                  <Lightbulb size={16} />
-                  <span>The Core Analogy Story</span>
-                </button>
+                  {/* Video Title and Tagline */}
+                  <div className="pt-2">
+                    <h1 className="text-2xl md:text-3xl font-black text-[#2D3436] tracking-tight leading-snug">
+                      {currentLesson.title}
+                    </h1>
+                    <p className="text-sm md:text-base font-semibold text-[#636E72] mt-1">
+                      {currentLesson.tagline}
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("quiz")}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === "quiz"
-                      ? "bg-[#6C5CE7] text-white shadow-md font-black"
-                      : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#6C5CE7]"
-                  }`}
-                  id="tab-quiz-btn"
-                >
-                  <Trophy size={16} />
-                  <span>Quiz ({currentLesson.quiz.length} Qs)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("summary")}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full transition-all whitespace-nowrap cursor-pointer ${
-                    activeTab === "summary"
-                      ? "bg-[#6C5CE7] text-white shadow-md font-black"
-                      : "bg-white text-[#636E72] hover:text-[#2D3436] border-2 border-[#FFEAA7] hover:border-[#6C5CE7]"
-                  }`}
-                  id="tab-summary-btn"
-                >
-                  <FileText size={16} />
-                  <span>Chalkboard Summary</span>
-                </button>
-              </div>
-
-              {/* Main Content Area based on Selected Tab */}
-              <div>
-                {activeTab === "interactive" && (
-                  <div className="space-y-8">
-                    {/* Split View: Whiteboard Canvas on Left/Top, Step Explainer on Right */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-                      <div className="lg:col-span-7 flex flex-col">
-                        <WhiteboardCanvas
-                          drawData={currentLesson.steps[currentStepIndex].whiteboardDraw}
-                          isGuruSpeaking={isSpeaking}
-                          stepNumber={currentStepIndex + 1}
-                        />
-                      </div>
-
-                      <div className="lg:col-span-5 flex flex-col">
-                        <StepExplainer
-                          steps={currentLesson.steps}
-                          currentStepIndex={currentStepIndex}
-                          onStepChange={handleStepChange}
-                          isSpeaking={isSpeaking}
-                          onReadStep={handleReadCurrentStep}
-                        />
+                  {/* Channel / Author Row & Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 py-3 border-y border-[#FFEAA7]">
+                    <div className="flex items-center gap-3">
+                      <GuruAvatar isSpeaking={isPlaying && !speechService.muted} size="md" />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-sm md:text-base text-[#2D3436]">
+                            Guru AI Tutor
+                          </span>
+                          <span className="w-4 h-4 rounded-full bg-[#55EFC4] text-[#00B894] inline-flex items-center justify-center text-[10px] font-bold">
+                            ✓
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#636E72] font-medium">
+                          Personalized for {gradeLevel}
+                        </p>
                       </div>
                     </div>
 
-                    {/* Quick Analogy preview banner */}
-                    <div className="p-6 rounded-[2rem] bg-white border-4 border-[#FFEAA7] shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-12 h-12 rounded-2xl bg-[#FFF9E3] text-[#F1C40F] border border-[#FFEAA7] flex items-center justify-center shrink-0">
-                          <Lightbulb size={24} />
-                        </div>
-                        <div>
-                          <p className="text-xs uppercase font-black tracking-wider text-[#6C5CE7]">
-                            Central Metaphor
-                          </p>
-                          <p className="text-base font-bold text-[#2D3436]">
-                            {currentLesson.analogy.title} — {currentLesson.analogy.metaphor}
-                          </p>
-                        </div>
-                      </div>
-
+                    <div className="flex items-center gap-2">
+                      {/* Play/Pause Button */}
                       <button
                         type="button"
-                        onClick={() => setActiveTab("analogy")}
-                        className="px-5 py-2.5 rounded-full bg-[#FFF9E3] hover:bg-[#FFEAA7] text-xs font-black text-[#2D3436] transition-all shrink-0 cursor-pointer"
+                        onClick={() => setIsPlaying(!isPlaying)}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                          isPlaying
+                            ? "bg-[#FFEAA7] text-[#2D3436] hover:bg-[#FDCB6E]"
+                            : "bg-[#FF0000] text-white hover:bg-[#D63031]"
+                        }`}
+                        id="action-play-pause-btn"
                       >
-                        Explore Full Analogy Story →
+                        {isPlaying ? <Pause size={14} /> : <Play size={14} className="fill-white" />}
+                        <span>{isPlaying ? "Pause" : "Play Video"}</span>
+                      </button>
+
+                      {/* Quiz Button */}
+                      <button
+                        type="button"
+                        onClick={() => setSidebarTab("quiz")}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FFF9E3] border border-[#FFEAA7] text-xs font-bold text-[#2D3436] transition-colors cursor-pointer"
+                        id="action-quiz-btn"
+                      >
+                        <Trophy size={14} className="text-[#F1C40F]" />
+                        <span>Quiz ({currentLesson.quiz.length})</span>
+                      </button>
+
+                      {/* Share Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(window.location.href);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FFF9E3] border border-[#FFEAA7] text-xs font-bold text-[#636E72] hover:text-[#2D3436] transition-colors cursor-pointer"
+                        id="action-share-btn"
+                      >
+                        {copiedLink ? <Check size={14} className="text-[#00B894]" /> : <Share2 size={14} />}
+                        <span>{copiedLink ? "Copied!" : "Share"}</span>
                       </button>
                     </div>
                   </div>
-                )}
 
-                {activeTab === "analogy" && (
-                  <AnalogyCard
-                    lesson={currentLesson}
-                    isSpeaking={isSpeaking}
-                    onStartSpeech={(text) => speechService.speak(text)}
-                  />
-                )}
+                  {/* Expandable YouTube-style Description Box */}
+                  <div
+                    className="p-5 rounded-3xl bg-white border-2 border-[#FFEAA7] shadow-sm space-y-4 text-xs md:text-sm text-[#2D3436]"
+                    id="video-description-box"
+                  >
+                    <div className="flex items-center justify-between font-bold text-xs text-[#636E72]">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono">{formatTime(currentLesson.video.totalDuration)} duration</span>
+                        <span>•</span>
+                        <span>{currentLesson.video.scenes.length} Chapters</span>
+                        <span>•</span>
+                        <span>Interactive Transcript Available</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                        className="inline-flex items-center gap-1 text-[#6C5CE7] hover:underline cursor-pointer font-black"
+                      >
+                        <span>{isDescriptionExpanded ? "Show less" : "Show more"}</span>
+                        {isDescriptionExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    </div>
 
-                {activeTab === "quiz" && (
-                  <QuizSection quiz={currentLesson.quiz} topic={currentLesson.topic} />
-                )}
+                    {/* Central Mental Model / Analogy */}
+                    <div className="p-3.5 rounded-2xl bg-[#FFFAF0] border border-[#FFEAA7] flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-[#FFF9E3] text-[#F1C40F] border border-[#FFEAA7] flex items-center justify-center shrink-0 mt-0.5">
+                        <Lightbulb size={18} />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-xs uppercase tracking-wider text-[#6C5CE7]">
+                          Everyday Analogy: {currentLesson.analogy.title}
+                        </h4>
+                        <p className="text-xs md:text-sm text-[#2D3436] font-medium mt-0.5 leading-relaxed">
+                          {currentLesson.analogy.story}
+                        </p>
+                      </div>
+                    </div>
 
-                {activeTab === "summary" && (
-                  <SummaryCheatSheet
-                    summary={currentLesson.whiteboardSummary}
-                    topic={currentLesson.topic}
-                    onReadSummary={handleReadSummary}
-                  />
-                )}
+                    {/* Collapsible Chapters & Takeaway Details */}
+                    {isDescriptionExpanded && (
+                      <div className="space-y-4 pt-2 border-t border-[#FFEAA7]/60">
+                        {/* Clickable Video Chapters */}
+                        <div>
+                          <h4 className="font-black text-xs uppercase tracking-wider text-[#636E72] mb-2 flex items-center gap-1.5">
+                            <Clock size={14} />
+                            <span>Chapters & Timestamps (Click to Jump)</span>
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {currentLesson.video.scenes.map((scene) => {
+                              const isCurrentScene =
+                                currentTime >= scene.startTime && currentTime < scene.endTime;
+                              return (
+                                <button
+                                  key={scene.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleSeek(scene.startTime);
+                                    setIsPlaying(true);
+                                  }}
+                                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                                    isCurrentScene
+                                      ? "bg-[#6C5CE7]/10 border-[#6C5CE7] font-bold"
+                                      : "bg-[#FFFAF0] hover:bg-[#FFEAA7]/40 border-[#FFEAA7] font-medium"
+                                  }`}
+                                >
+                                  <span className="font-mono text-xs px-2 py-0.5 rounded bg-white border border-[#FFEAA7] text-[#6C5CE7] font-black shrink-0">
+                                    {formatTime(scene.startTime)}
+                                  </span>
+                                  <span className="text-xs truncate text-[#2D3436]">
+                                    {scene.chapterTitle}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Golden Rule / Key Takeaway */}
+                        {currentLesson.whiteboardSummary?.goldenRule && (
+                          <div className="p-3.5 rounded-2xl bg-[#E8F8F5] border border-[#A3E4D7]">
+                            <h5 className="font-black text-xs uppercase tracking-wide text-[#16A085]">
+                              Key Takeaway
+                            </h5>
+                            <p className="text-xs md:text-sm font-bold text-[#2D3436] mt-0.5">
+                              {currentLesson.whiteboardSummary.goldenRule}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Sidebar (Transcript / Quiz / Q&A) */}
+                <div className="lg:col-span-4 flex flex-col space-y-4">
+                  {/* Tab Selector Buttons */}
+                  <div className="flex items-center gap-2 p-1.5 bg-white border-2 border-[#FFEAA7] rounded-2xl shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab("transcript")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        sidebarTab === "transcript"
+                          ? "bg-[#6C5CE7] text-white shadow-xs font-black"
+                          : "text-[#636E72] hover:text-[#2D3436]"
+                      }`}
+                      id="tab-transcript-btn"
+                    >
+                      <FileText size={14} />
+                      <span>Transcript</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab("quiz")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        sidebarTab === "quiz"
+                          ? "bg-[#6C5CE7] text-white shadow-xs font-black"
+                          : "text-[#636E72] hover:text-[#2D3436]"
+                      }`}
+                      id="tab-quiz-btn"
+                    >
+                      <Trophy size={14} />
+                      <span>Quiz</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab("chat")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        sidebarTab === "chat"
+                          ? "bg-[#6C5CE7] text-white shadow-xs font-black"
+                          : "text-[#636E72] hover:text-[#2D3436]"
+                      }`}
+                      id="tab-chat-btn"
+                    >
+                      <MessageSquare size={14} />
+                      <span>Ask Q&A</span>
+                    </button>
+                  </div>
+
+                  {/* Sidebar Panels */}
+                  <div>
+                    {sidebarTab === "transcript" && (
+                      <VideoTranscript
+                        transcript={currentLesson.video.transcript}
+                        currentTime={currentTime}
+                        onSeek={handleSeek}
+                      />
+                    )}
+
+                    {sidebarTab === "quiz" && (
+                      <div className="bg-white rounded-3xl border-2 border-[#FFEAA7] shadow-xl p-4 overflow-hidden">
+                        <QuizSection quiz={currentLesson.quiz} topic={currentLesson.topic} />
+                      </div>
+                    )}
+
+                    {sidebarTab === "chat" && (
+                      <div className="bg-white rounded-3xl border-2 border-[#FFEAA7] shadow-xl p-5 flex flex-col space-y-4">
+                        <div className="flex items-center gap-3 p-3 bg-[#FFFAF0] rounded-2xl border border-[#FFEAA7]">
+                          <GuruAvatar isSpeaking={false} size="sm" />
+                          <div>
+                            <h4 className="font-black text-xs text-[#2D3436]">Have a question?</h4>
+                            <p className="text-[11px] text-[#636E72]">
+                              Ask Guru anything about {currentLesson.title}!
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#636E72] leading-relaxed">
+                          Click below to open the dedicated Guru AI chat drawer with voice recognition and smart pedagogical answers.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const trigger = document.getElementById("guru-chat-toggle-btn");
+                            if (trigger) trigger.click();
+                          }}
+                          className="w-full py-3 px-4 rounded-2xl bg-[#6C5CE7] hover:bg-[#5849C4] text-white text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <MessageSquare size={16} />
+                          <span>Open Guru AI Tutor Chat</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Floating Guru Chat Drawer for Instant Student Q&A */}
               <GuruChatDrawer
                 lesson={currentLesson}
-                currentStepIndex={currentStepIndex}
+                currentStepIndex={0}
               />
             </div>
           )
@@ -441,14 +524,14 @@ export default function App() {
       {/* Footer */}
       <footer className="w-full border-t-2 border-[#FFEAA7] bg-[#FFFAF0] py-8 text-center text-xs text-[#636E72] font-semibold">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© 2026 Guru AI Tutor — Vibrant Visual Learning for Curious Students.</p>
+          <p>© 2026 Guru AI Tutor — Interactive Video Learning with Real-Time Synchronized Transcript.</p>
           <div className="flex items-center gap-4 text-[#636E72]">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#55EFC4]" />
               Zero-Cost
             </span>
             <span>•</span>
-            <span>Web Speech Narration</span>
+            <span>YouTube-Style Synchronized Player</span>
             <span>•</span>
             <span>Gemini Pedagogical Engine</span>
           </div>
@@ -457,3 +540,4 @@ export default function App() {
     </div>
   );
 }
+

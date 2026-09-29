@@ -240,6 +240,180 @@ async function generateJsonWithGemini(
   throw lastError || new Error("All Gemini models failed to produce a response");
 }
 
+// Helper: formats seconds into mm:ss
+function formatTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
+}
+
+// Helper: Builds a timed video lesson with scenes and synchronized transcript
+function buildVideoContent(lesson: any) {
+  if (
+    lesson.video &&
+    Array.isArray(lesson.video.scenes) &&
+    lesson.video.scenes.length > 0 &&
+    Array.isArray(lesson.video.transcript) &&
+    lesson.video.transcript.length > 0
+  ) {
+    return lesson.video;
+  }
+
+  const scenes: any[] = [];
+  const transcript: any[] = [];
+  let currentTime = 0;
+
+  // Scene 1: Introduction (approx 20s)
+  const introEnd = 20;
+  const introText =
+    lesson.speechScripts?.welcome ||
+    `Welcome! Let's explore ${lesson.topic}. ${lesson.tagline || ""}`;
+
+  scenes.push({
+    id: "scene-1",
+    chapterTitle: "Introduction & Big Picture",
+    startTime: 0,
+    endTime: introEnd,
+    narration: introText,
+    visual: {
+      type: "intro",
+      heading: lesson.title || lesson.topic,
+      subheading: lesson.tagline || `An intuitive breakdown of ${lesson.topic}`,
+      keyTakeaway: lesson.whiteboardSummary?.goldenRule || "Understand the foundational concept.",
+      bulletPoints: [
+        lesson.tagline,
+        `Topic: ${lesson.topic}`,
+        `Difficulty: ${lesson.difficulty || "Simple"}`
+      ].filter(Boolean),
+    },
+  });
+
+  transcript.push({
+    id: "t-1",
+    startTime: 0,
+    endTime: introEnd,
+    timeFormatted: "0:00",
+    text: introText,
+  });
+
+  currentTime = introEnd;
+
+  // Scene 2: Everyday Analogy (approx 35s)
+  const analogyEnd = currentTime + 35;
+  const analogyText =
+    lesson.speechScripts?.analogy ||
+    lesson.analogy?.story ||
+    "Here is an everyday analogy to make this concept click instantly.";
+
+  scenes.push({
+    id: "scene-2",
+    chapterTitle: `Analogy: ${lesson.analogy?.title || "Everyday Metaphor"}`,
+    startTime: currentTime,
+    endTime: analogyEnd,
+    narration: analogyText,
+    visual: {
+      type: "analogy",
+      heading: lesson.analogy?.title || "Everyday Metaphor",
+      subheading: lesson.analogy?.metaphor,
+      keyTakeaway: lesson.analogy?.metaphor || "Connecting new ideas to familiar concepts.",
+      analogyStory: lesson.analogy?.story,
+      bulletPoints: (lesson.analogy?.mapping || []).map(
+        (m: any) => `${m.analogyItem} ➔ ${m.concept}`
+      ),
+    },
+  });
+
+  transcript.push({
+    id: "t-2",
+    startTime: currentTime,
+    endTime: analogyEnd,
+    timeFormatted: formatTime(currentTime),
+    text: analogyText,
+  });
+
+  currentTime = analogyEnd;
+
+  // Scenes 3..N: Step by Step
+  const steps = lesson.steps || [];
+  steps.forEach((step: any, idx: number) => {
+    const stepDuration = 28;
+    const stepEnd = currentTime + stepDuration;
+    const stepText =
+      lesson.speechScripts?.steps?.[idx] ||
+      `Step ${step.stepNumber || idx + 1}: ${step.title}. ${step.content} ${
+        step.example ? `For example: ${step.example}` : ""
+      }`;
+
+    scenes.push({
+      id: `scene-step-${idx + 1}`,
+      chapterTitle: `Step ${step.stepNumber || idx + 1}: ${step.title}`,
+      startTime: currentTime,
+      endTime: stepEnd,
+      narration: stepText,
+      visual: {
+        type: "diagram",
+        heading: step.title,
+        subheading: step.example ? `Example: ${step.example}` : undefined,
+        keyTakeaway: step.keyTakeaway || "Key mechanism in action.",
+        nodes: step.whiteboardDraw?.nodes || [],
+        connections: step.whiteboardDraw?.connections || [],
+        formulaOrCode: step.whiteboardDraw?.codeOrFormula,
+        bulletPoints: [step.content, step.keyTakeaway].filter(Boolean),
+      },
+    });
+
+    transcript.push({
+      id: `t-step-${idx + 1}`,
+      startTime: currentTime,
+      endTime: stepEnd,
+      timeFormatted: formatTime(currentTime),
+      text: stepText,
+    });
+
+    currentTime = stepEnd;
+  });
+
+  // Scene Final: Summary & Golden Rule
+  const summaryEnd = currentTime + 22;
+  const summaryText =
+    lesson.speechScripts?.wrapup ||
+    `And that is ${lesson.topic}! Remember the golden rule: ${
+      lesson.whiteboardSummary?.goldenRule || "Focus on the foundational building blocks."
+    }`;
+
+  scenes.push({
+    id: "scene-summary",
+    chapterTitle: "Summary & Golden Rule",
+    startTime: currentTime,
+    endTime: summaryEnd,
+    narration: summaryText,
+    visual: {
+      type: "summary",
+      heading: "Master Takeaway",
+      subheading: lesson.whiteboardSummary?.chalkboardTitle || "Lesson Summary",
+      keyTakeaway: lesson.whiteboardSummary?.goldenRule || "Master the core principle.",
+      bulletPoints: (lesson.whiteboardSummary?.corePrinciples || []).slice(0, 3),
+      formulaOrCode: lesson.whiteboardSummary?.goldenRule,
+    },
+  });
+
+  transcript.push({
+    id: "t-summary",
+    startTime: currentTime,
+    endTime: summaryEnd,
+    timeFormatted: formatTime(currentTime),
+    text: summaryText,
+  });
+
+  currentTime = summaryEnd;
+
+  return {
+    totalDuration: currentTime,
+    scenes,
+    transcript,
+  };
+}
+
 // API: Explain any topic for students
 app.post("/api/explain", async (req, res) => {
   try {
@@ -256,9 +430,12 @@ app.post("/api/explain", async (req, res) => {
 
     if (!ai) {
       if (FALLBACK_EXPLANATIONS[normalizedKey]) {
-        return res.json(FALLBACK_EXPLANATIONS[normalizedKey]);
+        const item: any = { ...FALLBACK_EXPLANATIONS[normalizedKey] };
+        item.video = buildVideoContent(item);
+        return res.json(item);
       }
-      const generated = generateFallbackTopic(cleanTopic, level);
+      const generated: any = generateFallbackTopic(cleanTopic, level);
+      generated.video = buildVideoContent(generated);
       return res.json(generated);
     }
 
@@ -340,11 +517,13 @@ Make sure there are 3 well-structured steps, at least 3 quiz questions, and 3-5 
       "You are Guru, an expert pedagogical tutor who turns difficult concepts into intuitive analogies, step-by-step whiteboard sketches, and engaging audio lessons for students of all ages."
     );
 
+    parsed.video = buildVideoContent(parsed);
     return res.json(parsed);
   } catch (error: any) {
     console.error("Error generating explanation:", error);
     // Fallback gracefully so student experience never breaks
-    const fallback = generateFallbackTopic(req.body?.topic || "Learning Concept", req.body?.level || "Middle School");
+    const fallback: any = generateFallbackTopic(req.body?.topic || "Learning Concept", req.body?.level || "Middle School");
+    fallback.video = buildVideoContent(fallback);
     return res.json(fallback);
   }
 });

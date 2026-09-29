@@ -1,4 +1,10 @@
-export type GradeLevel = "Elementary (Like I'm 10)" | "Middle School" | "High School" | "College / Advanced";
+export type GradeLevel =
+  | "School"
+  | "Middle School"
+  | "Advanced"
+  | "Elementary (Like I'm 10)"
+  | "High School"
+  | "College / Advanced";
 
 export interface MetaphorMapItem {
   concept: string;
@@ -59,12 +65,49 @@ export interface SpeechScripts {
   wrapup: string;
 }
 
+export interface VideoSceneVisual {
+  type: "intro" | "analogy" | "diagram" | "step" | "summary";
+  heading: string;
+  subheading?: string;
+  keyTakeaway: string;
+  iconType?: string;
+  analogyStory?: string;
+  nodes?: WhiteboardNode[];
+  connections?: WhiteboardConnection[];
+  formulaOrCode?: string;
+  bulletPoints?: string[];
+}
+
+export interface VideoScene {
+  id: string;
+  chapterTitle: string;
+  startTime: number; // in seconds
+  endTime: number;   // in seconds
+  narration: string;
+  visual: VideoSceneVisual;
+}
+
+export interface TranscriptItem {
+  id: string;
+  startTime: number; // in seconds
+  endTime: number;   // in seconds
+  timeFormatted: string; // e.g. "0:25"
+  text: string;
+}
+
+export interface VideoContent {
+  totalDuration: number; // in seconds
+  scenes: VideoScene[];
+  transcript: TranscriptItem[];
+}
+
 export interface TopicExplanation {
   topic: string;
   title: string;
   tagline: string;
   subject: string;
   difficulty: "Simple" | "Medium" | "Advanced";
+  video?: VideoContent;
   analogy: {
     title: string;
     metaphor: string;

@@ -1,12 +1,12 @@
 import { TopicExplanation, GradeLevel } from "../types";
 import { generateClientLessonFallback, CURATED_LESSONS } from "./curriculumFallback";
+import { ensureVideoContent } from "./videoHelper";
 
 export async function fetchTopicExplanation(
   topic: string,
   level: GradeLevel = "Middle School"
 ): Promise<TopicExplanation> {
   const cleanTopic = topic.trim();
-  // Fast check: If it matches a curated lesson directly, we can use it or fetch live
   try {
     const res = await fetch("/api/explain", {
       method: "POST",
@@ -18,8 +18,8 @@ export async function fetchTopicExplanation(
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const data = await res.json();
-        if (data && typeof data === "object" && data.title && Array.isArray(data.steps)) {
-          return {
+        if (data && typeof data === "object" && data.title) {
+          const lesson: TopicExplanation = {
             topic: data.topic || cleanTopic,
             title: data.title,
             tagline: data.tagline || `Mastering ${cleanTopic} with Guru`,
@@ -31,7 +31,7 @@ export async function fetchTopicExplanation(
               story: `Think of ${cleanTopic} as a coordinated team working together in harmony.`,
               mapping: [],
             },
-            steps: data.steps,
+            steps: Array.isArray(data.steps) ? data.steps : [],
             whiteboardSummary: data.whiteboardSummary || {
               chalkboardTitle: `${cleanTopic} Summary`,
               corePrinciples: [`${cleanTopic} works through steady, orderly steps.`],
@@ -46,7 +46,10 @@ export async function fetchTopicExplanation(
             },
             quiz: Array.isArray(data.quiz) ? data.quiz : [],
             deepDivePrompts: Array.isArray(data.deepDivePrompts) ? data.deepDivePrompts : [],
+            video: data.video,
           };
+          lesson.video = ensureVideoContent(lesson);
+          return lesson;
         }
       }
     }
@@ -55,7 +58,9 @@ export async function fetchTopicExplanation(
   }
 
   // Seamless fallback for Vercel static hosting and offline usage
-  return generateClientLessonFallback(cleanTopic, level);
+  const fallback = generateClientLessonFallback(cleanTopic, level);
+  fallback.video = ensureVideoContent(fallback);
+  return fallback;
 }
 
 export async function askGuruQuestion(
